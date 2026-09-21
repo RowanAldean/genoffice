@@ -18,7 +18,7 @@ function editorWith(runs: Array<Record<string, unknown>>, styleId = 'Normal') {
           attrs: { styleId },
           content: runs.map((attrs) => ({
             type: 'text',
-            text: '中文 English 123',
+            text: '\u4e2d\u6587 English 123',
             marks: [{ type: 'docTextStyle', attrs }],
           })),
         },
@@ -94,16 +94,8 @@ it('offers explicit font slots and applies an unclassified family only to the ch
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
-  const settings = vi.fn(async () => {})
   try {
-    act(() =>
-      root.render(
-        createElement(Ribbon, {
-          ...ribbonProps(editor, computeFormatState(editor)),
-          onFontSettings: settings,
-        }),
-      ),
-    )
+    act(() => root.render(createElement(Ribbon, ribbonProps(editor, computeFormatState(editor)))))
     const input = host.querySelector<HTMLInputElement>('input[data-font-slot="font"]')
     expect(input).not.toBeNull()
     expect(host.querySelector<HTMLInputElement>('input[data-font-slot="fontAscii"]')?.value).toBe(
@@ -119,19 +111,6 @@ it('offers explicit font slots and applies an unclassified family only to the ch
       fontAscii: 'Times New Roman',
       sizeHalfPoints: 28,
     })
-    const scope = host.querySelector('select')!
-    act(() => {
-      scope.value = 'defaults'
-      scope.dispatchEvent(new Event('change', { bubbles: true }))
-    })
-    await act(async () => {
-      const latin = host.querySelector<HTMLInputElement>('input[data-font-slot="fontAscii"]')!
-      latin.focus()
-      latin.value = 'Georgia'
-      latin.blur()
-    })
-    expect(settings).toHaveBeenCalledWith('defaults', { font: 'Georgia' })
-    expect(editor.getAttributes('docTextStyle').fontAscii).toBe('Times New Roman')
   } finally {
     act(() => root.unmount())
     host.remove()
@@ -141,7 +120,7 @@ it('offers explicit font slots and applies an unclassified family only to the ch
 it('routes CJK glyphs to the East Asian slot even when the Latin face also covers CJK', () => {
   const editor = editorWith([{ font: 'SimSun', fontAscii: 'Microsoft YaHei' }])
   const cjk = editor.view.dom.querySelector<HTMLElement>('.doc-east-asian-font')
-  expect(cjk?.textContent).toBe('中文')
+  expect(cjk?.textContent).toBe('\u4e2d\u6587')
   expect(cjk?.style.fontFamily).toContain('--doc-east-asian-font')
   expect(cjk?.parentElement?.style.getPropertyValue('--doc-east-asian-font')).toContain('SimSun')
   expect(editor.getJSON().content?.[0].content).toHaveLength(1)
@@ -153,7 +132,8 @@ import { blocksToPmDoc, pmDocToSavePlan, type PmNode } from '../src/renderer/edi
 it('keeps bilingual fonts and bold through the real editor save plan and reopen', async () => {
   const parsed = await parseDocx(
     await buildDocx({
-      bodyXml: '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>中文测试 English text 123</w:t></w:r></w:p>',
+      bodyXml:
+        '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>\u4e2d\u6587\u6d4b\u8bd5 English text 123</w:t></w:r></w:p>',
     }),
   )
   const editor = new Editor({
@@ -170,11 +150,11 @@ it('keeps bilingual fonts and bold through the real editor save plan and reopen'
   })
   editor.commands.setMark('docTextStyle', { fontAscii: 'Times New Roman' })
   editor.commands.setTextSelection(editor.state.doc.content.size - 1)
-  editor.commands.insertContent(' 新增 456')
+  editor.commands.insertContent(' \u65b0\u589e 456')
   const plan = pmDocToSavePlan(editor.getJSON() as PmNode, parsed.blocks)
   const reopened = await parseDocx(await saveDocx(parsed, plan.saveBlocks))
   expect(reopened.blocks[0].runs!.map((r) => r.text).join('')).toBe(
-    '中文测试 English text 123 新增 456',
+    '\u4e2d\u6587\u6d4b\u8bd5 English text 123 \u65b0\u589e 456',
   )
   for (const run of reopened.blocks[0].runs!)
     expect(run).toMatchObject({ font: 'SimSun', fontAscii: 'Times New Roman', bold: true })
@@ -203,11 +183,18 @@ it('uses the same script font routing in the read-only split pane', () => {
   ])
   const template = document.createElement('template')
   template.innerHTML = scriptFontHtml(editor.getHTML())
-  expect(template.content.querySelector('.doc-east-asian-font')?.textContent).toBe('中文')
-  expect(template.content.textContent).toBe('中文 English 123')
+  expect(template.content.querySelector('.doc-east-asian-font')?.textContent).toBe('\u4e2d\u6587')
+  expect(template.content.textContent).toBe('\u4e2d\u6587 English 123')
   expect(
     template.content
       .querySelector<HTMLElement>('[data-doc-style]')
       ?.style.getPropertyValue('--doc-east-asian-font'),
   ).toContain('SimSun')
+})
+
+it('does not pin CJK to a Latin-only run font from an HTML chain', () => {
+  const editor = editorWith([{ font: 'Arial', fontAscii: 'Arial' }])
+  const run = editor.view.dom.querySelector('span[style*="font-family"]') as HTMLElement
+  expect(run.style.getPropertyValue('--doc-east-asian-font')).toBe('')
+  expect(computeFormatState(editor).fontEastAsia).toBe('')
 })

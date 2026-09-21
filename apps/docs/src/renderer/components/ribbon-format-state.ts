@@ -138,7 +138,17 @@ export const EMPTY_FORMAT_STATE: RibbonFormatState = {
   spaceAfter: 0,
 }
 
-const docEmptyOf = cachedByDoc((doc: PmNode) => doc.textContent.trim() === '')
+// stops at the first character instead of building the whole document's text
+const docEmptyOf = cachedByDoc((doc: PmNode) => {
+  let empty = true
+  doc.descendants((node) => {
+    if (!empty) return false
+    if (node.isText && node.text?.trim()) empty = false
+    else if (node.isLeaf && !node.isText) empty = false
+    return empty
+  })
+  return empty
+})
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null)
 const num = (v: unknown): number | null => {
