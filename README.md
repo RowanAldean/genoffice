@@ -233,10 +233,18 @@ web and image search, image generation, and image/audio/video analysis.
 DeepSeek, Kimi, GLM, Qwen, Doubao, MiniMax, Grok, Mistral, OpenRouter, Requesty, Opper
 and OpenCode Zen/Go, plus a custom slot for any OpenAI-compatible endpoint (base
 URL + key), including local model servers. Search and media have their own
-per-capability providers under **AI Media & Search**: Serper or Tavily for web
+per-capability providers under **AI Media & Search**: Serper, Tavily or Parallel for web
 search, and OpenAI, Gemini, Doubao/Seedream, GLM, Grok, Qwen, MiniMax or any
 OpenAI-compatible images endpoint for image generation and image/video
 analysis.
+
+To use **Parallel Search**, get an API key from [Parallel](https://platform.parallel.ai/),
+then open **Settings → AI Media & Search**, select **Parallel** under Web search,
+enter the key, and click **Save**. Use **Test connection** to check the key. The
+saved provider is shared by the editors, CLI and MCP search tools. For headless
+use, `PARALLEL_API_KEY` also enables Parallel in the default fallback chain.
+Parallel supplies web results and source excerpts, not image search; existing
+image-search fallbacks remain available. Genspark remains the default provider.
 
 The whole suite ships light, dark and system themes. Themes only change what
 is on screen: exports, prints and saved files always keep the document's own

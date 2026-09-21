@@ -1,8 +1,8 @@
 /**
  * Search utilities (main process) — gsk (Genspark CLI) first, then Serper Google API,
- * then Tavily, with DuckDuckGo as the keyless last resort. Runs in the main process
+ * then Tavily and Parallel, with DuckDuckGo as the keyless last resort. Runs in the main process
  * (Node fetch / child process) to avoid renderer CORS; the Serper key reuses SERPER_API_KEY,
- * the Tavily key reuses TAVILY_API_KEY.
+ * the Tavily key reuses TAVILY_API_KEY and Parallel uses PARALLEL_API_KEY.
  * For gsk auth see ./gsk.ts (`gsk login` or GSK_API_KEY).
  */
 
@@ -23,10 +23,11 @@ export * from './search-tools'
 
 const SERPER_KEY = () => process.env.SERPER_API_KEY ?? ''
 const TAVILY_KEY = () => process.env.TAVILY_API_KEY ?? ''
+const PARALLEL_KEY = () => process.env.PARALLEL_API_KEY ?? ''
 
 /**
  * Backend selection for one search. Keys default to the SERPER_API_KEY /
- * TAVILY_API_KEY env vars; settings-driven callers (search-tools.ts) pass the
+ * TAVILY_API_KEY / PARALLEL_API_KEY env vars; settings-driven callers (search-tools.ts) pass the
  * user's key and turn gsk off so the chosen backend runs first.
  */
 export interface SearchOptions {
@@ -34,8 +35,9 @@ export interface SearchOptions {
   useGsk?: boolean
   serperKey?: string
   tavilyKey?: string
+  parallelKey?: string
   /** which keyed backend to try first (default serper) */
-  prefer?: 'serper' | 'tavily'
+  prefer?: 'serper' | 'tavily' | 'parallel'
 }
 
 function normalizeOptions(opts: boolean | SearchOptions | undefined): Required<SearchOptions> {
@@ -44,6 +46,7 @@ function normalizeOptions(opts: boolean | SearchOptions | undefined): Required<S
     useGsk: o.useGsk ?? true,
     serperKey: o.serperKey ?? SERPER_KEY(),
     tavilyKey: o.tavilyKey ?? TAVILY_KEY(),
+    parallelKey: o.parallelKey ?? PARALLEL_KEY(),
     prefer: o.prefer ?? 'serper',
   }
 }
@@ -131,6 +134,43 @@ async function tavilyWebSearch(
   }
 }
 
+/** Parallel's v1 Search API returns source excerpts, not a synthesized answer. */
+async function parallelWebSearch(
+  key: string,
+  query: string,
+  maxResults: number,
+): Promise<WebSearchResponse | null> {
+  if (!key) return null
+  try {
+    const resp = await fetchWithTimeout('https://api.parallel.ai/v1/search', {
+      method: 'POST',
+      headers: { 'x-api-key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ search_queries: [query], mode: 'fast' }),
+    })
+    if (!resp.ok) return null
+    const data = asRecord(await resp.json())
+    const raw: unknown[] = Array.isArray(data.results) ? data.results : []
+    const results: WebSearchResult[] = []
+    for (const item of raw) {
+      const result = asRecord(item)
+      if (typeof result.url !== 'string' || !/^https?:\/\//i.test(result.url)) continue
+      const excerpts: unknown[] = Array.isArray(result.excerpts) ? result.excerpts : []
+      results.push({
+        title: typeof result.title === 'string' && result.title ? result.title : result.url,
+        url: result.url,
+        snippet: excerpts
+          .filter((excerpt): excerpt is string => typeof excerpt === 'string')
+          .join('\n'),
+      })
+    }
+    // v1 search has no result-count parameter; apply GenOffice's limit locally.
+    const limited = results.slice(0, maxResults)
+    return limited.length ? { results: limited, method: 'parallel' } : null
+  } catch {
+    return null
+  }
+}
+
 // ── Web search ──────────────────────────────────────────────────────
 
 export async function webSearch(
@@ -146,21 +186,20 @@ export async function webSearch(
       const r = await gskWebSearch(query, maxResults)
       if (r.results.length) return { ...r, method: 'gsk' }
     } catch {
-      /* fall back to Serper/Tavily/DuckDuckGo */
+      /* fall back to Serper/Tavily/Parallel/DuckDuckGo */
     }
   }
-  const keyed =
-    o.prefer === 'tavily'
-      ? [
-          () => tavilyWebSearch(o.tavilyKey, query, maxResults),
-          () => serperWebSearch(o.serperKey, query, maxResults),
-        ]
-      : [
-          () => serperWebSearch(o.serperKey, query, maxResults),
-          () => tavilyWebSearch(o.tavilyKey, query, maxResults),
-        ]
-  for (const attempt of keyed) {
-    const r = await attempt()
+  const keyed = {
+    serper: () => serperWebSearch(o.serperKey, query, maxResults),
+    tavily: () => tavilyWebSearch(o.tavilyKey, query, maxResults),
+    parallel: () => parallelWebSearch(o.parallelKey, query, maxResults),
+  }
+  const order = [
+    o.prefer,
+    ...(['serper', 'tavily', 'parallel'] as const).filter((id) => id !== o.prefer),
+  ]
+  for (const id of order) {
+    const r = await keyed[id]()
     if (r) return r
   }
   try {
@@ -191,7 +230,7 @@ export async function imageSearch(
       /* fall back to Serper/DuckDuckGo */
     }
   }
-  // Tavily has no image endpoint; Serper is the only keyed image backend
+  // Tavily and Parallel have no image endpoint; Serper is the only keyed image backend
   const key = o.serperKey
   if (key) {
     try {

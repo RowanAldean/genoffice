@@ -12,6 +12,7 @@ const realFetch = globalThis.fetch
 afterEach(() => {
   globalThis.fetch = realFetch
   delete process.env.SERPER_API_KEY
+  delete process.env.PARALLEL_API_KEY
   delete process.env.TAVILY_API_KEY
 })
 
@@ -236,7 +237,7 @@ describe('search-tools', () => {
       ...base,
       search: {
         provider: 'serper' as const,
-        providers: { serper: { apiKey: 'k' }, tavily: { apiKey: '' } },
+        providers: { serper: { apiKey: 'k' }, tavily: { apiKey: '' }, parallel: { apiKey: '' } },
       },
     }
     expect(searchOptionsFromSettings(serper)).toEqual({ useGsk: false, serperKey: 'k' })
@@ -244,7 +245,7 @@ describe('search-tools', () => {
       ...base,
       search: {
         provider: 'tavily' as const,
-        providers: { serper: { apiKey: '' }, tavily: { apiKey: 't' } },
+        providers: { serper: { apiKey: '' }, tavily: { apiKey: 't' }, parallel: { apiKey: '' } },
       },
     }
     expect(searchOptionsFromSettings(tavily)).toEqual({
@@ -257,7 +258,7 @@ describe('search-tools', () => {
       ...base,
       search: {
         provider: 'serper' as const,
-        providers: { serper: { apiKey: '' }, tavily: { apiKey: '' } },
+        providers: { serper: { apiKey: '' }, tavily: { apiKey: '' }, parallel: { apiKey: '' } },
       },
     }
     expect(searchOptionsFromSettings(empty)).toEqual({ useGsk: true })

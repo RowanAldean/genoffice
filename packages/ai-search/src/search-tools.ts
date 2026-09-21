@@ -2,7 +2,7 @@
  * ai:web-search / ai:image-search for the editors' main processes: reads
  * ai-settings.json live and turns the search provider choice into
  * SearchOptions — Genspark keeps the historic chain (gsk when signed in and
- * cloud tools are on, then env keys, then DuckDuckGo); a user Serper / Tavily
+ * cloud tools are on, then env keys, then DuckDuckGo); a user Serper / Tavily / Parallel
  * key runs first and skips gsk.
  */
 
@@ -19,6 +19,7 @@ export function searchOptionsFromSettings(settings: AiSettings): SearchOptions {
   const provider = activeSearchProvider(settings)
   if (provider === 'genspark') return { useGsk: cloudToolsEnabled(settings) }
   const key = settings.search!.providers[provider].apiKey
+  if (provider === 'parallel') return { useGsk: false, parallelKey: key, prefer: 'parallel' }
   return provider === 'tavily'
     ? { useGsk: false, tavilyKey: key, prefer: 'tavily' }
     : { useGsk: false, serperKey: key }
@@ -39,10 +40,13 @@ export async function testSearchProvider(
 ): Promise<{ ok: boolean; error?: string }> {
   if (provider === 'genspark') return { ok: true }
   if (!apiKey) return { ok: false, error: 'API key is empty' }
-  const options: SearchOptions =
-    provider === 'tavily'
-      ? { useGsk: false, tavilyKey: apiKey, serperKey: '', prefer: 'tavily' }
-      : { useGsk: false, serperKey: apiKey, tavilyKey: '' }
+  const options: SearchOptions = {
+    useGsk: false,
+    serperKey: provider === 'serper' ? apiKey : '',
+    tavilyKey: provider === 'tavily' ? apiKey : '',
+    parallelKey: provider === 'parallel' ? apiKey : '',
+    prefer: provider,
+  }
   const r = await webSearch('GenOffice', 1, options)
   if (r.method === provider) return { ok: true }
   return {
