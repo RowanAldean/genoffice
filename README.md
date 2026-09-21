@@ -1,0 +1,1 @@
+UI evidence for the optional Parallel Search provider contribution to GenOffice. Screenshots use an isolated test profile and a deliberately invalid test key; no credentials or account data are included.
