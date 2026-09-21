@@ -161,7 +161,8 @@ Independently of the PATH, every launch of the packaged app writes the launcher 
 ## Cloud commands
 
 `search`, `image` and `media` reuse the editors' provider routing. Search uses
-the selected Serper / Tavily / Parallel provider when its key is configured;
+the selected Serper / Tavily provider when its key is configured, or Parallel
+with an optional key (a blank saved key uses its free, rate-limited Search MCP);
 otherwise Genspark is the default when signed in (`~/.genoffice/auth.json`)
 and cloud tools are on, with free-source fallbacks when unavailable. Parallel
 and Tavily provide web search only. Image generation and media analysis use

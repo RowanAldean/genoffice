@@ -14,6 +14,7 @@ import {
   type WebSearchResult,
 } from './shared'
 import { gskImageSearch, gskWebSearch, hasGskAuth } from './gsk'
+import { parallelMcpSearch } from './parallel-mcp'
 
 export type { ImageSearchResult, WebSearchResult } from './shared'
 export * from './gsk'
@@ -36,7 +37,7 @@ export interface SearchOptions {
   serperKey?: string
   tavilyKey?: string
   parallelKey?: string
-  /** which keyed backend to try first (default serper) */
+  /** which backend to try first (default serper); selecting parallel also enables its free MCP */
   prefer?: 'serper' | 'tavily' | 'parallel'
 }
 
@@ -134,21 +135,28 @@ async function tavilyWebSearch(
   }
 }
 
-/** Parallel's v1 Search API returns source excerpts, not a synthesized answer. */
+/** Parallel's API and free Search MCP return source excerpts, not a synthesized answer. */
 async function parallelWebSearch(
   key: string,
   query: string,
   maxResults: number,
+  allowFreeMcp: boolean,
 ): Promise<WebSearchResponse | null> {
-  if (!key) return null
+  key = key.trim()
+  if (!key && !allowFreeMcp) return null
   try {
-    const resp = await fetchWithTimeout('https://api.parallel.ai/v1/search', {
-      method: 'POST',
-      headers: { 'x-api-key': key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ search_queries: [query], mode: 'fast' }),
-    })
-    if (!resp.ok) return null
-    const data = asRecord(await resp.json())
+    let data: Record<string, unknown>
+    if (key) {
+      const resp = await fetchWithTimeout('https://api.parallel.ai/v1/search', {
+        method: 'POST',
+        headers: { 'x-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ search_queries: [query], mode: 'fast' }),
+      })
+      if (!resp.ok) return null
+      data = asRecord(await resp.json())
+    } else {
+      data = asRecord(await parallelMcpSearch(query))
+    }
     const raw: unknown[] = Array.isArray(data.results) ? data.results : []
     const results: WebSearchResult[] = []
     for (const item of raw) {
@@ -192,7 +200,7 @@ export async function webSearch(
   const keyed = {
     serper: () => serperWebSearch(o.serperKey, query, maxResults),
     tavily: () => tavilyWebSearch(o.tavilyKey, query, maxResults),
-    parallel: () => parallelWebSearch(o.parallelKey, query, maxResults),
+    parallel: () => parallelWebSearch(o.parallelKey, query, maxResults, o.prefer === 'parallel'),
   }
   const order = [
     o.prefer,

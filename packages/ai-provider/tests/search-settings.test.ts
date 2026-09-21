@@ -94,7 +94,7 @@ describe('Parallel search settings', () => {
     expect(settings.providers.parallel.apiKey).toBe('')
   })
 
-  it('uses the default chain when the Parallel key is blank', () => {
+  it('keeps Parallel selected for free search when the key is blank', () => {
     const settings = resolveAiSearchSettings(
       JSON.parse(
         JSON.stringify({
@@ -103,6 +103,6 @@ describe('Parallel search settings', () => {
         }),
       ),
     )
-    expect(activeSearchProvider({ search: settings })).toBe('genspark')
+    expect(activeSearchProvider({ search: settings })).toBe('parallel')
   })
 })

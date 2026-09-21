@@ -107,4 +107,15 @@ describe('genoffice capabilities', () => {
       expect(d.media_analysis).toEqual({ available: true, via: 'genspark' })
     },
   )
+
+  it('reports selected keyless Parallel as web search without requiring a login', async () => {
+    const settings = settingsFile(tempDir(), {
+      search: { provider: 'parallel', providers: { parallel: { apiKey: '' } } },
+    })
+    const r = await run(['capabilities', '--json'], {
+      env: { ...process.env, GENOFFICE_AI_SETTINGS: settings },
+    })
+    expect(r.json().detail.search).toEqual({ available: true, via: 'parallel' })
+    expect(r.json().detail.image_search).toEqual({ available: false, via: null })
+  })
 })

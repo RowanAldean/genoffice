@@ -238,11 +238,18 @@ search, and OpenAI, Gemini, Doubao/Seedream, GLM, Grok, Qwen, MiniMax or any
 OpenAI-compatible images endpoint for image generation and image/video
 analysis.
 
-To use **Parallel Search**, get an API key from [Parallel](https://platform.parallel.ai/),
-then open **Settings → AI Media & Search**, select **Parallel** under Web search,
-enter the key, and click **Save**. Use **Test connection** to check the key. The
-saved provider is shared by the editors, CLI and MCP search tools. For headless
-use, `PARALLEL_API_KEY` also enables Parallel in the default fallback chain.
+To use **Parallel Search**, open **Settings → AI Media & Search**, select
+**Parallel** under Web search, and click **Save**. Leave the key blank to use
+the [free Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
+without an account, subject to its free-tier limits. Optionally enter a key
+from [Parallel](https://platform.parallel.ai/) to use the Search API with your
+account instead. **Test connection** checks whichever mode is selected.
+The saved provider is shared by the editors, CLI and MCP search tools. A blank
+saved key explicitly selects free search, even if `PARALLEL_API_KEY` is set.
+For headless use with default settings, `PARALLEL_API_KEY` enables the API in
+the existing fallback chain; anonymous Parallel requests are only enabled by
+selecting Parallel. If Parallel is unavailable or rate-limited, the existing
+search fallbacks still apply.
 Parallel supplies web results and source excerpts, not image search; existing
 image-search fallbacks remain available. Genspark remains the default provider.
 

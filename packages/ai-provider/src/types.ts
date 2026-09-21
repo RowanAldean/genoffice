@@ -104,7 +104,7 @@ export interface AiMediaSettings {
   provider?: AiMediaProviderId | undefined
 }
 
-/** web/image search backends: Genspark (gsk) or a user key for Serper / Tavily / Parallel */
+/** web/image search backends; Parallel supports both a user key and free keyless search */
 export type AiSearchProviderId = 'genspark' | 'serper' | 'tavily' | 'parallel'
 
 export interface AiSearchProviderMeta {

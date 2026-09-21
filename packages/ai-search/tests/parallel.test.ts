@@ -194,7 +194,6 @@ describe('Parallel search', () => {
       vi.fn(async () => response()),
     )
     expect(await testSearchProvider('parallel', 'valid-key')).toEqual({ ok: true })
-    expect((await testSearchProvider('parallel', '')).ok).toBe(false)
   })
 
   it('preserves image fallback when Parallel is selected', async () => {
