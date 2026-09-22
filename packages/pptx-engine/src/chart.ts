@@ -59,6 +59,8 @@ export interface ChartSeries {
   marker?: boolean
   /** Explicit per-point colors <c:dPt> (common for pies; render layer palette otherwise) */
   pointColors?: Array<string | undefined>
+  /** Per-point picture/gradient/pattern fills <c:dPt><c:spPr> (bars painted with a bitmap) */
+  pointFills?: Array<Fill | undefined>
   /** Pie: <c:dPt><c:spPr><a:noFill/> — the wedge is outline-only */
   pointNoFill?: Array<boolean | undefined>
   /** Pie: per-point outline <c:dPt><c:spPr><a:ln> (color null = explicit no line) */
@@ -448,6 +450,7 @@ export function parseChartXml(
       const dPts: any[] = ser['c:dPt'] ?? []
       if (dPts.length) {
         const pointColors: Array<string | undefined> = []
+        const pointFills: Array<Fill | undefined> = []
         const pointNoFill: Array<boolean | undefined> = []
         const pointLines: Array<{ color: string | null; widthPt?: number } | undefined> = []
         const pointExpl: Array<number | undefined> = []
@@ -458,6 +461,10 @@ export function parseChartXml(
           const c = resolveColorNode(dSp?.['a:solidFill'], theme)
           if (c != null) pointColors[idx] = c
           if (dSp && 'a:noFill' in dSp) pointNoFill[idx] = true
+          else if (dSp && c == null) {
+            const f = resolveFill?.(dSp)
+            if (f && f.type !== 'none') pointFills[idx] = f
+          }
           const dLn = dSp?.['a:ln']
           if (dLn && typeof dLn === 'object') {
             const lnColor = 'a:noFill' in dLn ? null : resolveColorNode(dLn['a:solidFill'], theme)
@@ -472,6 +479,7 @@ export function parseChartXml(
           if (Number.isFinite(pe)) pointExpl[idx] = pe
         }
         if (pointColors.length) s.pointColors = pointColors
+        if (pointFills.length) s.pointFills = pointFills
         if (pointNoFill.length) s.pointNoFill = pointNoFill
         if (pointLines.length) s.pointLines = pointLines
         if (pointExpl.length) s.pointExplosionPct = pointExpl
@@ -983,8 +991,12 @@ function parseAxis(ax: any, theme?: Theme): ChartAxisStyle | undefined {
   const out: ChartAxisStyle = {}
   if (ax['c:delete']?.['@_val'] === '1') out.hidden = true
   const scaling = ax['c:scaling']
-  if (scaling?.['c:min']?.['@_val'] != null) out.min = Number(scaling['c:min']['@_val'])
-  if (scaling?.['c:max']?.['@_val'] != null) out.max = Number(scaling['c:max']['@_val'])
+  // Corrupt axis bounds (c:min val="Infinity") would poison chart scale math:
+  // assign only finite values, else the axis auto-scales.
+  const min = Number(scaling?.['c:min']?.['@_val'])
+  if (scaling?.['c:min']?.['@_val'] != null && Number.isFinite(min)) out.min = min
+  const max = Number(scaling?.['c:max']?.['@_val'])
+  if (scaling?.['c:max']?.['@_val'] != null && Number.isFinite(max)) out.max = max
   if (scaling?.['c:orientation']?.['@_val'] === 'maxMin') out.reversed = true
   if (ax['c:tickLblPos']?.['@_val'] === 'none') out.tickLblHidden = true
   const defRPr =

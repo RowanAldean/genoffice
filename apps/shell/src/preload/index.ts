@@ -393,6 +393,9 @@ const homeApi: HomeApi = {
   async getCodexModels(cliPath) {
     return (await ipcRenderer.invoke('ai:codex-models', cliPath)) as CodexModelCatalog
   },
+  async getCustomModels(baseUrl, apiKey) {
+    return (await ipcRenderer.invoke('ai:custom-models', { baseUrl, apiKey })) as CodexModelCatalog
+  },
   async testAiSettings(settings) {
     const result: unknown = await ipcRenderer.invoke('ai:chat', {
       settings,
@@ -489,6 +492,12 @@ const tabsApi: TabsApi = {
   },
   async showNewMenu(x, y) {
     await ipcRenderer.invoke(TABS_CHANNELS.showNewMenu, x, y)
+  },
+  async showTabMenu(id, x, y) {
+    await ipcRenderer.invoke(TABS_CHANNELS.showTabMenu, id, x, y)
+  },
+  async detach(id) {
+    await ipcRenderer.invoke(TABS_CHANNELS.detach, id)
   },
   async showAppMenu(x, y) {
     await ipcRenderer.invoke(TABS_CHANNELS.showAppMenu, x, y)
